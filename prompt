@@ -1,0 +1,179 @@
+You are an expert IntelliJ Platform plugin engineer. Build a new IntelliJ IDEA Community plugin that recreates and modernizes the old “HiDPI Profiles” plugin behavior.
+
+Context and goal:
+The original HiDPI Profiles plugin provided a way to create several UI profiles for different screen resolutions and easily toggle between them. Its documented supported settings were:
+- Default system font size and type
+- Editor font size and type
+- Console font size and type
+
+Its usage flow was:
+1. User manually sets up the IDE fonts/sizes they want
+2. User goes to Settings > Appearance & Behavior > HiDPI Profiles
+3. User clicks something like “Add current profile” to save the current font configuration as a named profile
+4. User later switches between profiles from a main menu action
+
+Recreate that core behavior, but implement it for modern IntelliJ Platform versions and IntelliJ IDEA Community.
+
+Primary requirements:
+1. Plugin name:
+   - Modern HiDPI Profiles
+   - Use a distinct plugin id, not the original one
+
+2. Core features:
+   - Save the current IDE/UI/editor/console font-related settings as a named profile
+   - List all saved profiles
+   - Apply a selected profile instantly or with the minimum restart requirement possible
+   - Rename and delete profiles
+   - Duplicate an existing profile
+   - Mark one profile as default
+   - Add an “Add Current Profile” action from the settings page
+   - Add a quick-switch action group under Tools or View and also expose it through Search Everywhere / Find Action
+   - Optional status bar widget or popup switcher for fast profile switching
+
+3. Settings that must be captured in a profile:
+   - IDE UI font family and size, where supported by the platform
+   - Editor font family and size
+   - Console font family and size
+   - Line spacing for editor/console if accessible
+   - Presentation mode font size if accessible
+   - UI scale or JVM/IDE scale-related setting only if it is actually supported safely by the IntelliJ Platform API for the current version
+
+4. Important engineering constraint:
+   - Do NOT fake support for settings that cannot be safely changed using supported APIs
+   - If some settings require restart, clearly mark them as “restart required”
+   - If some settings are OS-dependent or unsupported on certain JetBrains Runtime / Linux / Wayland / X11 combinations, handle that explicitly and gracefully
+
+5. Modern improvements over the old plugin:
+   - Detect monitor changes where feasible
+   - Optional auto-suggest profile switch when the IDE window moves to a display with different scale/DPI/bounds
+   - Optional rule-based mapping:
+     - profile A for 4K monitor
+     - profile B for 1080p monitor
+   - User can disable all automatic behavior and keep manual switching only
+   - Debounce monitor-change events so the plugin does not thrash like a caffeinated squirrel
+
+6. UI/UX requirements:
+   - Settings page under:
+     Settings / Preferences > Appearance & Behavior > HiDPI Profiles
+   - Clean table/list of profiles with:
+     - name
+     - summary of captured settings
+     - default marker
+     - auto-switch rule summary
+   - Buttons:
+     - Add Current
+     - Apply
+     - Rename
+     - Duplicate
+     - Delete
+     - Set Default
+     - Detect Current Display
+     - Create Rule from Current Display
+   - Show warnings for settings that require restart
+   - Show validation errors for duplicate profile names
+   - Show notification balloon after profile apply
+
+7. Persistence:
+   - Use PersistentStateComponent / modern service-based persistence
+   - Store profiles in the IDE config safely
+   - Keep the stored data format versioned for future migrations
+
+8. Architecture:
+   - Use Java (latest compatible SDK)
+   - Use Gradle with the IntelliJ Platform Gradle Plugin
+   - Target current stable IntelliJ Platform APIs suitable for Community Edition
+   - Organize the code cleanly:
+     - model
+     - services
+     - actions
+     - settings UI
+     - display detection / rules
+     - settings appliers
+   - Prefer testable service abstractions over giant action classes
+
+9. Compatibility:
+   - Must support IntelliJ IDEA Community
+   - Design for modern JetBrains Platform builds
+   - Avoid deprecated APIs where practical
+   - Document any platform/version limitations
+
+10. Display/monitor intelligence:
+   - Investigate what the IntelliJ Platform and JVM can actually expose about:
+     - monitor DPI / scale
+     - display bounds
+     - graphics device id
+     - IDE window location
+   - Implement the best safe approximation available
+   - If true DPI cannot be reliably determined cross-platform, fall back to matching by:
+     - display bounds
+     - scale factor
+     - monitor id / graphics device string
+   - Make this limitation explicit in code comments and README
+
+11. Actions and key integration:
+   - “Save Current as HiDPI Profile”
+   - “Apply HiDPI Profile…”
+   - “Next HiDPI Profile”
+   - “Previous HiDPI Profile”
+   - “Toggle Auto-Switch”
+   - Register actions so users can assign keyboard shortcuts
+
+12. Safety and robustness:
+   - Never corrupt IDE font settings if apply fails halfway
+   - Use best-effort transactional apply with rollback where possible
+   - Add logging for profile application and auto-switch decisions
+   - Avoid repeated apply loops when monitor events fire multiple times
+   - Handle startup initialization cleanly
+
+13. Deliverables:
+   Produce the full plugin project, including:
+   - build.gradle.kts
+   - gradle.properties
+   - settings.gradle.kts
+   - plugin.xml or modern equivalent registration
+   - all Java source files
+   - settings UI implementation
+   - actions
+   - services
+   - icons/placeholders if needed
+   - README.md
+   - CHANGELOG.md
+   - LICENSE
+   - plugin description text
+   - at least a few focused tests for profile serialization and apply logic
+
+14. README requirements:
+   Include:
+   - what problem the plugin solves
+   - manual profile workflow
+   - auto-switch workflow
+   - supported settings
+   - unsupported/limited settings
+   - Linux/Windows/macOS caveats
+   - restart-required caveats
+   - development/build instructions
+   - how to run in a sandbox IDE
+
+15. Important implementation note:
+   Before writing code, first analyze whether each requested setting can be:
+   - read via API
+   - changed live via API
+   - changed only with restart
+   - not supported
+   Then design the plugin around reality, not wishful thinking.
+
+Execution plan:
+1. Summarize the feasible design and list which settings are truly supportable
+2. Propose the plugin architecture
+3. Generate the full project
+4. Explain any necessary compromises
+5. Include concise usage instructions
+
+Code quality bar:
+- production-grade
+- clear comments only where useful
+- no dead code
+- no invented APIs
+- no placeholder “TODO implement later” for core features unless absolutely unavoidable, and if unavoidable, clearly flag it
+
+Do not give me a hand-wavy sketch. Generate the actual plugin project.

@@ -1,0 +1,74 @@
+plugins {
+    id 'java'
+    id 'org.jetbrains.intellij.platform' version '2.2.1'
+}
+
+group = providers.gradleProperty('group').get()
+version = providers.gradleProperty('version').get()
+
+repositories {
+    mavenCentral()
+    intellijPlatform {
+        defaultRepositories()
+    }
+}
+
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+
+    intellijPlatform {
+        create(providers.gradleProperty('platformType'), providers.gradleProperty('platformVersion'))
+        bundledPlugin 'com.intellij.java'
+        testFramework org.jetbrains.intellij.platform.gradle.TestFrameworkType.Platform.INSTANCE
+    }
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+intellijPlatform {
+    pluginConfiguration {
+        id = providers.gradleProperty('pluginId').get()
+        name = providers.gradleProperty('pluginName').get()
+        version = providers.gradleProperty('pluginVersion').get()
+
+        description = '''
+            Modern HiDPI Profiles lets you save, manage, and quickly apply IDE font profiles for different display setups.
+            It supports editor and console fonts, UI overrides where available, profile defaults, and optional auto-switch rules.
+        '''.stripIndent().trim()
+
+        changeNotes = '''
+            <h3>1.0.0</h3>
+            <ul>
+              <li>Initial release with profile management, quick-switch actions, and optional display-based auto-switch.</li>
+            </ul>
+        '''.stripIndent().trim()
+
+        ideaVersion {
+            sinceBuild = providers.gradleProperty('pluginSinceBuild').get()
+            untilBuild = providers.gradleProperty('pluginUntilBuild').orNull
+        }
+    }
+
+    signing {
+        certificateChain = providers.environmentVariable('CERTIFICATE_CHAIN').orNull
+        privateKey = providers.environmentVariable('PRIVATE_KEY').orNull
+        password = providers.environmentVariable('PRIVATE_KEY_PASSWORD').orNull
+    }
+
+    publishing {
+        token = providers.environmentVariable('PUBLISH_TOKEN').orNull
+    }
+}
+
+tasks.named('patchPluginXml') {
+    sinceBuild = providers.gradleProperty('pluginSinceBuild').get()
+    untilBuild = providers.gradleProperty('pluginUntilBuild').orNull
+}
+
+tasks.named('test') {
+    useJUnit()
+}

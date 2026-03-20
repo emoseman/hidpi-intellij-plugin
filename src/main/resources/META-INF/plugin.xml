@@ -1,0 +1,47 @@
+<idea-plugin>
+    <id>com.emoseman.modernhidpiprofiles</id>
+    <name>Modern HiDPI Profiles</name>
+    <vendor email="devnull@example.com">Modern HiDPI Profiles</vendor>
+
+    <description><![CDATA[
+      Save, manage, and switch IDE font profiles optimized for different monitor setups.
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>com.intellij.modules.java</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <applicationService serviceImplementation="com.emoseman.hidpi.services.HidpiProfilesService"/>
+        <applicationService serviceImplementation="com.emoseman.hidpi.services.IntellijIdeSettingsAccessor"/>
+        <applicationService serviceImplementation="com.emoseman.hidpi.services.ProfileApplicationService"/>
+        <applicationService serviceImplementation="com.emoseman.hidpi.services.AutoSwitchService"/>
+        <applicationService serviceImplementation="com.emoseman.hidpi.display.DisplayDetectionService"/>
+
+        <startupActivity implementation="com.emoseman.hidpi.services.StartupInitializationService"/>
+        <startupActivity implementation="com.emoseman.hidpi.services.DisplayEventBridgeService"/>
+
+        <applicationConfigurable
+                id="modern.hidpi.profiles"
+                displayName="HiDPI Profiles"
+                parentId="appearance"
+                instance="com.emoseman.hidpi.settings.HidpiProfilesConfigurable"/>
+
+        <notificationGroup id="Modern HiDPI Profiles" displayType="BALLOON" isLogByDefault="true"/>
+    </extensions>
+
+    <actions>
+        <group id="ModernHidpiProfiles.Group" text="HiDPI Profiles" description="Switch HiDPI profiles" popup="true">
+            <add-to-group group-id="ToolsMenu" anchor="last"/>
+            <action id="ModernHidpiProfiles.SaveCurrent" class="com.emoseman.hidpi.actions.SaveCurrentAsProfileAction"
+                    text="Save Current as HiDPI Profile" description="Save current fonts and UI settings as profile"/>
+            <action id="ModernHidpiProfiles.Apply" class="com.emoseman.hidpi.actions.ApplyProfileAction"
+                    text="Apply HiDPI Profile..." description="Apply a HiDPI profile"/>
+            <action id="ModernHidpiProfiles.Next" class="com.emoseman.hidpi.actions.NextProfileAction"
+                    text="Next HiDPI Profile" description="Apply next profile"/>
+            <action id="ModernHidpiProfiles.Previous" class="com.emoseman.hidpi.actions.PreviousProfileAction"
+                    text="Previous HiDPI Profile" description="Apply previous profile"/>
+            <action id="ModernHidpiProfiles.ToggleAutoSwitch" class="com.emoseman.hidpi.actions.ToggleAutoSwitchAction"
+                    text="Toggle Auto-Switch" description="Enable or disable display-based profile auto-switch"/>
+        </group>
+    </actions>
+</idea-plugin>
