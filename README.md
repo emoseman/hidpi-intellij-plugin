@@ -2,6 +2,48 @@
 
 Modern HiDPI Profiles restores and modernizes the classic HiDPI profile workflow for IntelliJ IDEA Community.
 
+## Installation
+
+### Install from a plugin ZIP
+
+1. Download the plugin ZIP artifact.
+   For this project, the built artifact is typically `build/distributions/modern-hidpi-profiles-1.0.0.zip`.
+2. In IntelliJ IDEA, open **Settings / Preferences > Plugins**.
+3. Click the gear icon and choose **Install Plugin from Disk...**.
+4. Select the ZIP file and restart the IDE if prompted.
+
+### Build and install from source
+
+1. Build the plugin ZIP:
+
+```bash
+gradle buildPlugin
+```
+
+2. Find the generated ZIP in `build/distributions/`.
+3. In IntelliJ IDEA, open **Settings / Preferences > Plugins**.
+4. Click the gear icon and choose **Install Plugin from Disk...**.
+5. Select the generated ZIP and restart the IDE if prompted.
+
+### Run it in a sandbox IDE during development
+
+1. Start a sandbox IntelliJ instance:
+
+```bash
+gradle runIde
+```
+
+2. Wait for the sandbox IDE to launch with the plugin already installed.
+3. Test the plugin from:
+   - **Settings / Preferences > Appearance & Behavior > HiDPI Profiles**
+   - **Tools > HiDPI Profiles**
+   - **Find Action**
+
+### Uninstall or update
+
+- To update, install a newer plugin ZIP from disk and restart IntelliJ when prompted.
+- To remove the plugin, open **Settings / Preferences > Plugins**, locate **Modern HiDPI Profiles**, uninstall it, and restart the IDE.
+
 ## What problem this plugin solves
 
 Many developers switch between displays (4K external, 1080p laptop, projector, remote desktop) and need different font sizes and families for comfortable readability. This plugin lets you save complete font-oriented profiles and switch quickly.
