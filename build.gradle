@@ -82,9 +82,9 @@ intellijPlatform {
         '''.stripIndent().trim()
 
         changeNotes = '''
-            <h3>1.1.4</h3>
+            <h3>1.1.5</h3>
             <ul>
-              <li>Marked local IDE redeploy helper tasks as incompatible with Gradle configuration cache so they can execute local process commands safely.</li>
+              <li>Removed re-entrant font family combo-box filtering that could prevent typing in editable font family fields.</li>
             </ul>
         '''.stripIndent().trim()
 

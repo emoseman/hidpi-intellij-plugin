@@ -16,7 +16,6 @@ import com.intellij.util.ui.JBFont;
 import com.intellij.util.ui.JBUI;
 
 import javax.swing.JButton;
-import javax.swing.DefaultComboBoxModel;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
@@ -29,8 +28,6 @@ import javax.swing.ListSelectionModel;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.SpinnerNumberModel;
-import javax.swing.event.PopupMenuEvent;
-import javax.swing.event.PopupMenuListener;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.ChangeListener;
 import javax.swing.event.DocumentEvent;
@@ -80,7 +77,6 @@ public class HidpiProfilesSettingsPanel {
     private final JBLabel detailHint = new JBLabel("Select a profile to edit its font settings.");
     private static final int PROFILE_EDITOR_WIDTH = 350;
     private boolean syncingProfileFields;
-    private boolean filteringFontChoices;
 
     public HidpiProfilesSettingsPanel() {
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
@@ -483,38 +479,20 @@ public class HidpiProfilesSettingsPanel {
             textField.getDocument().addDocumentListener(new DocumentListener() {
                 @Override
                 public void insertUpdate(DocumentEvent event) {
-                    applyFontFilter(comboBox, textField);
                     syncCurrentEditorValues();
                 }
 
                 @Override
                 public void removeUpdate(DocumentEvent event) {
-                    applyFontFilter(comboBox, textField);
                     syncCurrentEditorValues();
                 }
 
                 @Override
                 public void changedUpdate(DocumentEvent event) {
-                    applyFontFilter(comboBox, textField);
                     syncCurrentEditorValues();
                 }
             });
         }
-        comboBox.addPopupMenuListener(new PopupMenuListener() {
-            @Override
-            public void popupMenuWillBecomeVisible(PopupMenuEvent event) {
-            }
-
-            @Override
-            public void popupMenuWillBecomeInvisible(PopupMenuEvent event) {
-                restoreAllFontChoices(comboBox);
-            }
-
-            @Override
-            public void popupMenuCanceled(PopupMenuEvent event) {
-                restoreAllFontChoices(comboBox);
-            }
-        });
     }
 
     private void loadSelectedProfileIntoEditor() {
@@ -734,79 +712,6 @@ public class HidpiProfilesSettingsPanel {
         withBlank[0] = "";
         System.arraycopy(names, 0, withBlank, 1, names.length);
         return withBlank;
-    }
-
-    private void applyFontFilter(JComboBox<String> comboBox, JTextField textField) {
-        if (syncingProfileFields || filteringFontChoices) {
-            return;
-        }
-
-        String typed = textField.getText();
-        String filter = typed == null ? "" : typed.trim().toLowerCase();
-        List<String> matches = new ArrayList<>();
-        for (String family : fontFamilies) {
-            if (filter.isEmpty() || family.toLowerCase().contains(filter)) {
-                matches.add(family);
-            }
-        }
-
-        filteringFontChoices = true;
-        try {
-            DefaultComboBoxModel<String> model = comboBoxModel(comboBox);
-            model.removeAllElements();
-            for (String family : matches) {
-                model.addElement(family);
-            }
-            comboBox.getEditor().setItem(typed);
-            if (!matches.isEmpty() && textField.isFocusOwner()) {
-                comboBox.setPopupVisible(true);
-            } else {
-                comboBox.setPopupVisible(false);
-            }
-        } finally {
-            filteringFontChoices = false;
-        }
-
-        SwingUtilities.invokeLater(() -> {
-            if (!textField.isDisplayable()) {
-                return;
-            }
-            if (!Objects.equals(textField.getText(), typed)) {
-                textField.setText(typed);
-            }
-            textField.setCaretPosition(Math.min(typed.length(), textField.getText().length()));
-        });
-    }
-
-    private void restoreAllFontChoices(JComboBox<String> comboBox) {
-        if (filteringFontChoices) {
-            return;
-        }
-        Object currentItem = comboBox.getEditor().getItem();
-        DefaultComboBoxModel<String> model = comboBoxModel(comboBox);
-        if (model.getSize() == fontFamilies.length) {
-            return;
-        }
-
-        filteringFontChoices = true;
-        try {
-            model.removeAllElements();
-            for (String family : fontFamilies) {
-                model.addElement(family);
-            }
-            comboBox.getEditor().setItem(currentItem);
-        } finally {
-            filteringFontChoices = false;
-        }
-    }
-
-    private DefaultComboBoxModel<String> comboBoxModel(JComboBox<String> comboBox) {
-        if (comboBox.getModel() instanceof DefaultComboBoxModel<String> model) {
-            return model;
-        }
-        DefaultComboBoxModel<String> model = new DefaultComboBoxModel<>(fontFamilies.clone());
-        comboBox.setModel(model);
-        return model;
     }
 
     private final class ProfileTableCellRenderer extends JPanel implements javax.swing.table.TableCellRenderer {
