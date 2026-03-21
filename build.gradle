@@ -30,6 +30,10 @@ def defaultLocalIdePluginsDir = {
     return "${home}/.local/share/JetBrains/${productDir}/plugins"
 }
 
+def osName = System.getProperty('os.name').toLowerCase()
+def isWindows = osName.contains('win')
+def isMac = osName.contains('mac')
+
 group = providers.gradleProperty('group').get()
 version = providers.gradleProperty('version').get()
 
@@ -68,9 +72,9 @@ intellijPlatform {
         '''.stripIndent().trim()
 
         changeNotes = '''
-            <h3>1.0.0</h3>
+            <h3>1.1.0</h3>
             <ul>
-              <li>Initial release with profile management, quick-switch actions, and optional display-based auto-switch.</li>
+              <li>Added Gradle tasks to redeploy the plugin into a local IDE install and restart the IDE for faster iteration.</li>
             </ul>
         '''.stripIndent().trim()
 
@@ -104,6 +108,19 @@ def deployPluginsDirProvider = providers.gradleProperty('localIdePluginsDir')
         .orElse(providers.environmentVariable('LOCAL_IDE_PLUGINS_DIR'))
         .orElse(defaultLocalIdePluginsDir())
 
+def localIdeExecutableProvider = providers.gradleProperty('localIdeExecutable')
+        .orElse(providers.environmentVariable('LOCAL_IDE_EXECUTABLE'))
+
+def localIdeProcessMatchProvider = providers.gradleProperty('localIdeProcessMatch')
+        .orElse(providers.environmentVariable('LOCAL_IDE_PROCESS_MATCH'))
+        .orElse(localIdeExecutableProvider.map { executable ->
+            def fileName = new File(executable).name
+            if (fileName.toLowerCase().endsWith('.app')) {
+                return fileName[0..-5]
+            }
+            return fileName
+        })
+
 tasks.register('deployLocalIde', Sync) {
     group = 'distribution'
     description = 'Builds the plugin ZIP and installs it into a local IntelliJ plugins directory.'
@@ -131,4 +148,84 @@ tasks.register('deployLocalIde', Sync) {
 
         logger.lifecycle("Deploying plugin to ${pluginsDir}")
     }
+}
+
+tasks.register('stopLocalIde') {
+    group = 'distribution'
+    description = 'Stops a running local IntelliJ instance before plugin deployment.'
+
+    doLast {
+        def processMatch = localIdeProcessMatchProvider.orNull
+        if (!processMatch) {
+            logger.lifecycle('No local IDE process match configured; skipping IDE shutdown.')
+            return
+        }
+
+        logger.lifecycle("Stopping local IDE processes matching '${processMatch}'")
+
+        if (isWindows) {
+            exec {
+                commandLine 'cmd', '/c', 'taskkill', '/F', '/IM', processMatch
+                ignoreExitValue = true
+            }
+        } else {
+            exec {
+                commandLine 'pkill', '-f', processMatch
+                ignoreExitValue = true
+            }
+        }
+
+        sleep(2000)
+    }
+}
+
+tasks.register('startLocalIde') {
+    group = 'distribution'
+    description = 'Starts a local IntelliJ instance from a configured executable path.'
+
+    doLast {
+        def executable = localIdeExecutableProvider.orNull
+        if (!executable) {
+            throw new GradleException(
+                    'Set localIdeExecutable or LOCAL_IDE_EXECUTABLE to your IntelliJ launcher path before running startLocalIde/redeployLocalIde.'
+            )
+        }
+
+        logger.lifecycle("Starting local IDE from ${executable}")
+
+        if (isMac && executable.toLowerCase().endsWith('.app')) {
+            exec {
+                commandLine 'open', '-na', executable
+            }
+            return
+        }
+
+        if (isWindows) {
+            exec {
+                commandLine 'cmd', '/c', 'start', '""', executable
+            }
+            return
+        }
+
+        def escapedExecutable = executable.replace("'", "'\"'\"'")
+        exec {
+            commandLine 'sh', '-lc', "nohup '${escapedExecutable}' >/dev/null 2>&1 &"
+        }
+    }
+}
+
+tasks.named('deployLocalIde') {
+    mustRunAfter tasks.named('stopLocalIde')
+}
+
+tasks.named('startLocalIde') {
+    mustRunAfter tasks.named('deployLocalIde')
+}
+
+tasks.register('redeployLocalIde') {
+    group = 'distribution'
+    description = 'Stops a local IntelliJ instance, deploys the freshly built plugin, and starts the IDE again.'
+    dependsOn tasks.named('stopLocalIde')
+    dependsOn tasks.named('deployLocalIde')
+    dependsOn tasks.named('startLocalIde')
 }

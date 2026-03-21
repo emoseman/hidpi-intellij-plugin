@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.0
+
+- Added `deployLocalIde`, `stopLocalIde`, `startLocalIde`, and `redeployLocalIde` Gradle tasks for faster local plugin iteration
+- `redeployLocalIde` can stop a running local IntelliJ instance, replace the installed plugin, and relaunch the IDE
+
 ## 1.0.0
 
 - Initial release of Modern HiDPI Profiles

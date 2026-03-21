@@ -7,7 +7,7 @@ Modern HiDPI Profiles restores and modernizes the classic HiDPI profile workflow
 ### Install from a plugin ZIP
 
 1. Download the plugin ZIP artifact.
-   For this project, the built artifact is typically `build/distributions/modern-hidpi-profiles-1.0.0.zip`.
+   For this project, the built artifact is typically `build/distributions/modern-hidpi-profiles-1.1.0.zip`.
 2. In IntelliJ IDEA, open **Settings / Preferences > Plugins**.
 3. Click the gear icon and choose **Install Plugin from Disk...**.
 4. Select the ZIP file and restart the IDE if prompted.
@@ -24,6 +24,49 @@ gradle buildPlugin
 3. In IntelliJ IDEA, open **Settings / Preferences > Plugins**.
 4. Click the gear icon and choose **Install Plugin from Disk...**.
 5. Select the generated ZIP and restart the IDE if prompted.
+
+### Fast local redeploy into your installed IDE
+
+If you want to iterate against your normal IntelliJ install instead of the Gradle sandbox, use the local deploy tasks.
+
+1. Set the IntelliJ launcher path once per shell or pass it inline:
+
+```bash
+export LOCAL_IDE_EXECUTABLE="$HOME/.local/share/JetBrains/Toolbox/apps/idea-community/ch-0/243.25659.59/bin/idea"
+```
+
+2. Optionally set a process match string if the default executable name is not specific enough:
+
+```bash
+export LOCAL_IDE_PROCESS_MATCH="idea-community"
+```
+
+3. Redeploy and restart IntelliJ:
+
+```bash
+./gradlew redeployLocalIde
+```
+
+You can also override paths with Gradle properties:
+
+```bash
+./gradlew redeployLocalIde \
+  -PlocalIdeExecutable=/path/to/idea \
+  -PlocalIdePluginsDir=/path/to/JetBrains/IdeaIC2024.3/plugins
+```
+
+Available tasks:
+
+- `deployLocalIde` builds the plugin ZIP and installs it into the local IDE plugins directory
+- `stopLocalIde` stops a running IntelliJ process matched by `localIdeProcessMatch` or `LOCAL_IDE_PROCESS_MATCH`
+- `startLocalIde` launches IntelliJ from `localIdeExecutable` or `LOCAL_IDE_EXECUTABLE`
+- `redeployLocalIde` stops IntelliJ, installs the fresh plugin build, and launches IntelliJ again
+
+Notes:
+
+- `localIdePluginsDir` still defaults automatically based on `platformType` and `platformVersion`
+- On macOS, `localIdeExecutable` may be either the `.app` bundle path or a launcher binary
+- On Windows, set `localIdeProcessMatch` to the executable name used by `taskkill`, for example `idea64.exe`
 
 ### Run it in a sandbox IDE during development
 
