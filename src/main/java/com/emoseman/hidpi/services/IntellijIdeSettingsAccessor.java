@@ -3,6 +3,7 @@ package com.emoseman.hidpi.services;
 import com.emoseman.hidpi.model.FontSetting;
 import com.emoseman.hidpi.model.HidpiProfile;
 import com.emoseman.hidpi.util.ReflectionUiSettingsAccessor;
+import com.intellij.ide.GeneralSettings;
 import com.intellij.ide.ui.UISettings;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.components.Service;
@@ -41,8 +42,10 @@ public final class IntellijIdeSettingsAccessor implements IdeSettingsAccessor {
         profile.console = console;
 
         profile.uiFontFamily = ReflectionUiSettingsAccessor.getUiFontFamily(uiSettings);
+        profile.accessibilityOverrideUiFont = ReflectionUiSettingsAccessor.getOverrideUiFont(uiSettings);
         profile.uiFontSize = ReflectionUiSettingsAccessor.getUiFontSize(uiSettings);
         profile.presentationModeFontSize = ReflectionUiSettingsAccessor.getPresentationModeFontSize(uiSettings);
+        profile.supportScreenReaders = GeneralSettings.getInstance().isSupportScreenReaders();
 
         return profile;
     }
@@ -58,11 +61,14 @@ public final class IntellijIdeSettingsAccessor implements IdeSettingsAccessor {
 
             UISettings uiSettings = UISettings.getInstance();
             boolean uiChanged = false;
-            if (!profile.uiFontFamily.isBlank()) {
-                uiChanged = ReflectionUiSettingsAccessor.setUiFontFamily(uiSettings, profile.uiFontFamily) || uiChanged;
-            }
-            if (profile.uiFontSize > 0) {
-                uiChanged = ReflectionUiSettingsAccessor.setUiFontSize(uiSettings, profile.uiFontSize) || uiChanged;
+            uiChanged = ReflectionUiSettingsAccessor.setOverrideUiFont(uiSettings, profile.accessibilityOverrideUiFont) || uiChanged;
+            if (profile.accessibilityOverrideUiFont) {
+                if (!profile.uiFontFamily.isBlank()) {
+                    uiChanged = ReflectionUiSettingsAccessor.setUiFontFamily(uiSettings, profile.uiFontFamily) || uiChanged;
+                }
+                if (profile.uiFontSize > 0) {
+                    uiChanged = ReflectionUiSettingsAccessor.setUiFontSize(uiSettings, profile.uiFontSize) || uiChanged;
+                }
             }
             if (profile.presentationModeFontSize > 0) {
                 if (!ReflectionUiSettingsAccessor.setPresentationModeFontSize(uiSettings, profile.presentationModeFontSize)) {
@@ -72,6 +78,7 @@ public final class IntellijIdeSettingsAccessor implements IdeSettingsAccessor {
             if (uiChanged) {
                 uiSettings.fireUISettingsChanged();
             }
+            GeneralSettings.getInstance().setSupportScreenReaders(profile.supportScreenReaders);
 
             boolean restartRequired = false;
             if (supportsIdeScaleSetting()) {
@@ -103,16 +110,20 @@ public final class IntellijIdeSettingsAccessor implements IdeSettingsAccessor {
             applyEditorSettings(scheme, backup);
             applyConsoleSettings(scheme, backup);
             UISettings uiSettings = UISettings.getInstance();
-            if (!backup.uiFontFamily.isBlank()) {
-                ReflectionUiSettingsAccessor.setUiFontFamily(uiSettings, backup.uiFontFamily);
-            }
-            if (backup.uiFontSize > 0) {
-                ReflectionUiSettingsAccessor.setUiFontSize(uiSettings, backup.uiFontSize);
+            ReflectionUiSettingsAccessor.setOverrideUiFont(uiSettings, backup.accessibilityOverrideUiFont);
+            if (backup.accessibilityOverrideUiFont) {
+                if (!backup.uiFontFamily.isBlank()) {
+                    ReflectionUiSettingsAccessor.setUiFontFamily(uiSettings, backup.uiFontFamily);
+                }
+                if (backup.uiFontSize > 0) {
+                    ReflectionUiSettingsAccessor.setUiFontSize(uiSettings, backup.uiFontSize);
+                }
             }
             if (backup.presentationModeFontSize > 0) {
                 ReflectionUiSettingsAccessor.setPresentationModeFontSize(uiSettings, backup.presentationModeFontSize);
             }
             uiSettings.fireUISettingsChanged();
+            GeneralSettings.getInstance().setSupportScreenReaders(backup.supportScreenReaders);
         } catch (Throwable ignored) {
         }
     }

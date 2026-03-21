@@ -20,6 +20,10 @@ public final class ReflectionUiSettingsAccessor {
         return invokeInt(uiSettings, "getPresentationModeFontSize");
     }
 
+    public static boolean getOverrideUiFont(UISettings uiSettings) {
+        return invokeBoolean(uiSettings, "getOverrideLafFonts");
+    }
+
     public static boolean setUiFontFamily(UISettings uiSettings, String family) {
         return invokeSetter(uiSettings, "setFontFace", String.class, family);
     }
@@ -30,6 +34,10 @@ public final class ReflectionUiSettingsAccessor {
 
     public static boolean setPresentationModeFontSize(UISettings uiSettings, int size) {
         return invokeSetter(uiSettings, "setPresentationModeFontSize", int.class, size);
+    }
+
+    public static boolean setOverrideUiFont(UISettings uiSettings, boolean enabled) {
+        return invokeSetter(uiSettings, "setOverrideLafFonts", boolean.class, enabled);
     }
 
     private static String invokeString(Object target, String methodName) {
@@ -49,6 +57,16 @@ public final class ReflectionUiSettingsAccessor {
             return result instanceof Integer ? (Integer) result : -1;
         } catch (Exception ignored) {
             return -1;
+        }
+    }
+
+    private static boolean invokeBoolean(Object target, String methodName) {
+        try {
+            Method method = target.getClass().getMethod(methodName);
+            Object result = method.invoke(target);
+            return result instanceof Boolean && (Boolean) result;
+        } catch (Exception ignored) {
+            return false;
         }
     }
 

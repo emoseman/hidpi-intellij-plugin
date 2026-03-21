@@ -8,11 +8,15 @@ import com.emoseman.hidpi.services.HidpiProfilesService;
 import com.emoseman.hidpi.services.IntellijIdeSettingsAccessor;
 import com.emoseman.hidpi.services.ProfileApplicationService;
 import com.intellij.openapi.ui.Messages;
+import com.intellij.ui.JBColor;
 import com.intellij.ui.components.JBCheckBox;
 import com.intellij.ui.components.JBLabel;
 import com.intellij.ui.components.JBScrollPane;
+import com.intellij.util.ui.JBFont;
+import com.intellij.util.ui.JBUI;
 
 import javax.swing.JButton;
+import javax.swing.DefaultComboBoxModel;
 import javax.swing.JComboBox;
 import javax.swing.JComponent;
 import javax.swing.JLabel;
@@ -22,16 +26,25 @@ import javax.swing.JSplitPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
+import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
 import javax.swing.SpinnerNumberModel;
+import javax.swing.border.EmptyBorder;
+import javax.swing.event.ChangeListener;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import java.awt.BorderLayout;
+import java.awt.Component;
+import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.GraphicsEnvironment;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.text.NumberFormat;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
@@ -43,16 +56,27 @@ public class HidpiProfilesSettingsPanel {
     private final JTable table = new JTable(tableModel);
     private final JBCheckBox autoSwitch = new JBCheckBox("Enable display-based auto-switch");
     private final JBLabel warning = new JBLabel("Note: UI font and scale behavior varies by platform. Restart may be required.");
-    private final JComboBox<String> editorFontFamily = new JComboBox<>(availableFontFamilies());
+    private final JTextField profileName = new JTextField();
+    private final JBCheckBox profileDefault = new JBCheckBox("Default profile");
+    private final JBCheckBox profileRequiresRestart = new JBCheckBox("Requires restart");
+    private final JBCheckBox accessibilityOverrideUiFont = new JBCheckBox("Use accessibility font override for IDE UI");
+    private final JBCheckBox supportScreenReaders = new JBCheckBox("Support screen readers");
+    private final JBCheckBox ruleEnabled = new JBCheckBox("Enable auto-switch rule");
+    private final JTextField ruleGraphicsDeviceId = new JTextField();
+    private final JTextField ruleBounds = new JTextField();
+    private final JSpinner ruleScale = decimalSpinner(1.0d, 0.0d, 10.0d, 0.05d);
+    private final String[] fontFamilies = availableFontFamilies();
+    private final JComboBox<String> editorFontFamily = new JComboBox<>(fontFamilies.clone());
     private final JSpinner editorFontSize = new JSpinner(new SpinnerNumberModel(13, 1, 200, 1));
     private final JSpinner editorLineSpacing = decimalSpinner(1.2d, 0.5d, 5.0d, 0.05d);
-    private final JComboBox<String> consoleFontFamily = new JComboBox<>(availableFontFamilies());
+    private final JComboBox<String> consoleFontFamily = new JComboBox<>(fontFamilies.clone());
     private final JSpinner consoleFontSize = new JSpinner(new SpinnerNumberModel(13, 1, 200, 1));
     private final JSpinner consoleLineSpacing = decimalSpinner(1.2d, 0.5d, 5.0d, 0.05d);
-    private final JComboBox<String> uiFontFamily = new JComboBox<>(availableFontFamilies());
+    private final JComboBox<String> uiFontFamily = new JComboBox<>(fontFamilies.clone());
     private final JSpinner uiFontSize = new JSpinner(new SpinnerNumberModel(-1, -1, 200, 1));
     private final JSpinner presentationModeFontSize = new JSpinner(new SpinnerNumberModel(-1, -1, 200, 1));
     private final JBLabel detailHint = new JBLabel("Select a profile to edit its font settings.");
+    private static final int PROFILE_EDITOR_WIDTH = 350;
     private boolean syncingProfileFields;
 
     public HidpiProfilesSettingsPanel() {
@@ -76,9 +100,36 @@ public class HidpiProfilesSettingsPanel {
         buttonPanel.add(createRule);
 
         table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        configureProfilesTable();
 
-        JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, new JBScrollPane(table), createProfileEditorPanel());
-        splitPane.setResizeWeight(0.45d);
+        JBScrollPane editorScrollPane = new JBScrollPane(
+                createProfileEditorPanel(),
+                JBScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED,
+                JBScrollPane.HORIZONTAL_SCROLLBAR_NEVER
+        );
+        editorScrollPane.setBorder(JBUI.Borders.empty());
+        Dimension editorSize = JBUI.size(PROFILE_EDITOR_WIDTH, 1);
+        editorScrollPane.setPreferredSize(editorSize);
+        editorScrollPane.setMinimumSize(editorSize);
+
+        JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, new JBScrollPane(table), editorScrollPane);
+        splitPane.setResizeWeight(1.0d);
+        splitPane.addPropertyChangeListener(JSplitPane.DIVIDER_LOCATION_PROPERTY, event -> {
+            if (!splitPane.isShowing()) {
+                return;
+            }
+            int availableWidth = splitPane.getWidth();
+            int desiredDivider = Math.max(0, availableWidth - JBUI.scale(PROFILE_EDITOR_WIDTH));
+            if (availableWidth > 0 && splitPane.getDividerLocation() != desiredDivider) {
+                splitPane.setDividerLocation(desiredDivider);
+            }
+        });
+        SwingUtilities.invokeLater(() -> {
+            int availableWidth = splitPane.getWidth();
+            if (availableWidth > 0) {
+                splitPane.setDividerLocation(Math.max(0, availableWidth - JBUI.scale(PROFILE_EDITOR_WIDTH)));
+            }
+        });
         root.add(splitPane, BorderLayout.CENTER);
         root.add(buttonPanel, BorderLayout.NORTH);
 
@@ -100,13 +151,47 @@ public class HidpiProfilesSettingsPanel {
                 loadSelectedProfileIntoEditor();
             }
         });
+        table.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent event) {
+                if (event.getClickCount() == 2 && event.getButton() == MouseEvent.BUTTON1) {
+                    int row = table.rowAtPoint(event.getPoint());
+                    if (row >= 0) {
+                        table.setRowSelectionInterval(row, row);
+                        applySelected();
+                    }
+                }
+            }
+        });
         bindProfileFieldListeners();
+        configureSpinner(ruleScale);
         configureSpinner(editorLineSpacing);
         configureSpinner(consoleLineSpacing);
         configureSpinner(editorFontSize);
         configureSpinner(consoleFontSize);
         configureSpinner(uiFontSize);
         configureSpinner(presentationModeFontSize);
+    }
+
+    private void configureProfilesTable() {
+        table.setRowHeight(JBUI.scale(60));
+        table.setShowGrid(false);
+        table.setIntercellSpacing(new Dimension(0, JBUI.scale(6)));
+        table.setFillsViewportHeight(true);
+        table.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        table.setOpaque(false);
+        table.setTableHeader(null);
+        table.setDefaultRenderer(Object.class, new ProfileTableCellRenderer());
+        table.setRowMargin(0);
+
+        table.getColumnModel().getColumn(0).setPreferredWidth(JBUI.scale(180));
+        table.getColumnModel().getColumn(0).setMinWidth(JBUI.scale(150));
+        table.getColumnModel().getColumn(1).setPreferredWidth(JBUI.scale(260));
+        table.getColumnModel().getColumn(1).setMinWidth(JBUI.scale(220));
+        table.getColumnModel().getColumn(2).setPreferredWidth(JBUI.scale(160));
+        table.getColumnModel().getColumn(2).setMinWidth(JBUI.scale(140));
+        table.getColumnModel().getColumn(3).setPreferredWidth(JBUI.scale(240));
+        table.getColumnModel().getColumn(3).setMinWidth(JBUI.scale(180));
     }
 
     public JComponent getComponent() {
@@ -118,7 +203,12 @@ public class HidpiProfilesSettingsPanel {
         tableModel.setProfiles(service.listProfiles());
         autoSwitch.setSelected(service.isAutoSwitchEnabled());
         if (tableModel.getRowCount() > 0) {
-            table.setRowSelectionInterval(0, 0);
+            if (!selectProfile(service.getLastAppliedProfileId())) {
+                HidpiProfile defaultProfile = tableModel.getProfiles().stream().filter(profile -> profile.isDefault).findFirst().orElse(null);
+                if (defaultProfile == null || !selectProfile(defaultProfile.id)) {
+                    table.setRowSelectionInterval(0, 0);
+                }
+            }
         } else {
             table.clearSelection();
             loadSelectedProfileIntoEditor();
@@ -252,23 +342,63 @@ public class HidpiProfilesSettingsPanel {
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.weightx = 1.0d;
 
-        panel.add(sectionLabel("Editor"), gbc);
-        panel.add(labeledField("Font Family", editorFontFamily), nextRow(gbc));
-        panel.add(labeledField("Font Size", editorFontSize), nextRow(gbc));
-        panel.add(labeledField("Line Spacing", editorLineSpacing), nextRow(gbc));
+        GridBagConstraints row = (GridBagConstraints) gbc.clone();
+        panel.add(sectionLabel("Profile"), row);
+        row = nextRow(row);
+        panel.add(labeledField("Name", profileName), row);
+        row = nextRow(row);
+        panel.add(profileDefault, row);
+        row = nextRow(row);
+        panel.add(profileRequiresRestart, row);
 
-        panel.add(sectionLabel("Console"), nextRow(gbc));
-        panel.add(labeledField("Font Family", consoleFontFamily), nextRow(gbc));
-        panel.add(labeledField("Font Size", consoleFontSize), nextRow(gbc));
-        panel.add(labeledField("Line Spacing", consoleLineSpacing), nextRow(gbc));
+        row = nextRow(row);
+        panel.add(sectionLabel("Accessibility"), row);
+        row = nextRow(row);
+        panel.add(accessibilityOverrideUiFont, row);
+        row = nextRow(row);
+        panel.add(supportScreenReaders, row);
 
-        panel.add(sectionLabel("UI"), nextRow(gbc));
-        panel.add(labeledField("Font Family", uiFontFamily), nextRow(gbc));
-        panel.add(labeledField("Font Size", uiFontSize), nextRow(gbc));
-        panel.add(labeledField("Presentation Mode Size", presentationModeFontSize), nextRow(gbc));
-        panel.add(detailHint, nextRow(gbc));
+        row = nextRow(row);
+        panel.add(sectionLabel("Auto-Switch Rule"), row);
+        row = nextRow(row);
+        panel.add(ruleEnabled, row);
+        row = nextRow(row);
+        panel.add(labeledField("Graphics Device ID", ruleGraphicsDeviceId), row);
+        row = nextRow(row);
+        panel.add(labeledField("Bounds", ruleBounds), row);
+        row = nextRow(row);
+        panel.add(labeledField("Scale", ruleScale), row);
 
-        GridBagConstraints filler = nextRow(gbc);
+        row = nextRow(row);
+        panel.add(sectionLabel("Editor"), row);
+        row = nextRow(row);
+        panel.add(labeledField("Font Family", editorFontFamily), row);
+        row = nextRow(row);
+        panel.add(labeledField("Font Size", editorFontSize), row);
+        row = nextRow(row);
+        panel.add(labeledField("Line Spacing", editorLineSpacing), row);
+
+        row = nextRow(row);
+        panel.add(sectionLabel("Console"), row);
+        row = nextRow(row);
+        panel.add(labeledField("Font Family", consoleFontFamily), row);
+        row = nextRow(row);
+        panel.add(labeledField("Font Size", consoleFontSize), row);
+        row = nextRow(row);
+        panel.add(labeledField("Line Spacing", consoleLineSpacing), row);
+
+        row = nextRow(row);
+        panel.add(sectionLabel("UI"), row);
+        row = nextRow(row);
+        panel.add(labeledField("Font Family", uiFontFamily), row);
+        row = nextRow(row);
+        panel.add(labeledField("Font Size", uiFontSize), row);
+        row = nextRow(row);
+        panel.add(labeledField("Presentation Mode Size", presentationModeFontSize), row);
+        row = nextRow(row);
+        panel.add(detailHint, row);
+
+        GridBagConstraints filler = nextRow(row);
         filler.weighty = 1.0d;
         filler.fill = GridBagConstraints.BOTH;
         panel.add(new JPanel(), filler);
@@ -293,18 +423,55 @@ public class HidpiProfilesSettingsPanel {
     }
 
     private void bindProfileFieldListeners() {
+        bindTextField(profileName);
+        bindCheckBox(profileDefault);
+        bindCheckBox(profileRequiresRestart);
+        bindCheckBox(accessibilityOverrideUiFont);
+        bindCheckBox(supportScreenReaders);
+        bindCheckBox(ruleEnabled);
+        bindTextField(ruleGraphicsDeviceId);
+        bindTextField(ruleBounds);
+        bindSpinner(ruleScale);
         editorFontFamily.addActionListener(event -> syncCurrentEditorValues());
         consoleFontFamily.addActionListener(event -> syncCurrentEditorValues());
         uiFontFamily.addActionListener(event -> syncCurrentEditorValues());
-        editorFontSize.addChangeListener(event -> syncCurrentEditorValues());
-        editorLineSpacing.addChangeListener(event -> syncCurrentEditorValues());
-        consoleFontSize.addChangeListener(event -> syncCurrentEditorValues());
-        consoleLineSpacing.addChangeListener(event -> syncCurrentEditorValues());
-        uiFontSize.addChangeListener(event -> syncCurrentEditorValues());
-        presentationModeFontSize.addChangeListener(event -> syncCurrentEditorValues());
+        bindSpinner(editorFontSize);
+        bindSpinner(editorLineSpacing);
+        bindSpinner(consoleFontSize);
+        bindSpinner(consoleLineSpacing);
+        bindSpinner(uiFontSize);
+        bindSpinner(presentationModeFontSize);
         attachComboEditorListener(editorFontFamily);
         attachComboEditorListener(consoleFontFamily);
         attachComboEditorListener(uiFontFamily);
+    }
+
+    private void bindTextField(JTextField textField) {
+        textField.getDocument().addDocumentListener(new DocumentListener() {
+            @Override
+            public void insertUpdate(DocumentEvent event) {
+                syncCurrentEditorValues();
+            }
+
+            @Override
+            public void removeUpdate(DocumentEvent event) {
+                syncCurrentEditorValues();
+            }
+
+            @Override
+            public void changedUpdate(DocumentEvent event) {
+                syncCurrentEditorValues();
+            }
+        });
+    }
+
+    private void bindCheckBox(JBCheckBox checkBox) {
+        checkBox.addActionListener(event -> syncCurrentEditorValues());
+    }
+
+    private void bindSpinner(JSpinner spinner) {
+        ChangeListener listener = event -> syncCurrentEditorValues();
+        spinner.addChangeListener(listener);
     }
 
     private void attachComboEditorListener(JComboBox<String> comboBox) {
@@ -313,16 +480,19 @@ public class HidpiProfilesSettingsPanel {
             textField.getDocument().addDocumentListener(new DocumentListener() {
                 @Override
                 public void insertUpdate(DocumentEvent event) {
+                    filterFontChoices(comboBox, textField);
                     syncCurrentEditorValues();
                 }
 
                 @Override
                 public void removeUpdate(DocumentEvent event) {
+                    filterFontChoices(comboBox, textField);
                     syncCurrentEditorValues();
                 }
 
                 @Override
                 public void changedUpdate(DocumentEvent event) {
+                    filterFontChoices(comboBox, textField);
                     syncCurrentEditorValues();
                 }
             });
@@ -334,17 +504,33 @@ public class HidpiProfilesSettingsPanel {
         try {
             HidpiProfile selected = selectedProfile();
             boolean enabled = selected != null;
+            profileName.setEnabled(enabled);
+            profileDefault.setEnabled(enabled);
+            profileRequiresRestart.setEnabled(enabled);
+            accessibilityOverrideUiFont.setEnabled(enabled);
+            supportScreenReaders.setEnabled(enabled);
+            ruleEnabled.setEnabled(enabled);
             editorFontFamily.setEnabled(enabled);
             editorFontSize.setEnabled(enabled);
             editorLineSpacing.setEnabled(enabled);
             consoleFontFamily.setEnabled(enabled);
             consoleFontSize.setEnabled(enabled);
             consoleLineSpacing.setEnabled(enabled);
-            uiFontFamily.setEnabled(enabled);
-            uiFontSize.setEnabled(enabled);
+            uiFontFamily.setEnabled(enabled && selected != null && selected.accessibilityOverrideUiFont);
+            uiFontSize.setEnabled(enabled && selected != null && selected.accessibilityOverrideUiFont);
             presentationModeFontSize.setEnabled(enabled);
             if (!enabled) {
-                detailHint.setText("Select a profile to edit its font settings.");
+                detailHint.setText("Select a profile to edit its settings.");
+                profileName.setText("");
+                profileDefault.setSelected(false);
+                profileRequiresRestart.setSelected(false);
+                accessibilityOverrideUiFont.setSelected(false);
+                supportScreenReaders.setSelected(false);
+                ruleEnabled.setSelected(false);
+                ruleGraphicsDeviceId.setText("");
+                ruleBounds.setText("");
+                ruleScale.setValue(1.0d);
+                setRuleFieldState(false);
                 editorFontFamily.setSelectedItem("");
                 consoleFontFamily.setSelectedItem("");
                 uiFontFamily.setSelectedItem("");
@@ -357,7 +543,18 @@ public class HidpiProfilesSettingsPanel {
                 return;
             }
 
-            detailHint.setText("Manual font size overrides are saved with the selected profile.");
+            detailHint.setText("All editable profile settings are available in this pane.");
+            profileName.setText(selected.name);
+            profileDefault.setSelected(selected.isDefault);
+            profileRequiresRestart.setSelected(selected.requiresRestart);
+            accessibilityOverrideUiFont.setSelected(selected.accessibilityOverrideUiFont);
+            supportScreenReaders.setSelected(selected.supportScreenReaders);
+            DisplayRule rule = selected.autoSwitchRule == null ? new DisplayRule() : selected.autoSwitchRule;
+            ruleEnabled.setSelected(selected.autoSwitchRule != null && selected.autoSwitchRule.enabled);
+            ruleGraphicsDeviceId.setText(rule.graphicsDeviceId);
+            ruleBounds.setText(rule.bounds);
+            ruleScale.setValue(rule.scale);
+            setRuleFieldState(selected.autoSwitchRule != null && selected.autoSwitchRule.enabled);
             editorFontFamily.setSelectedItem(selected.editor.family);
             editorFontSize.setValue(selected.editor.size);
             editorLineSpacing.setValue((double) selected.editor.lineSpacing);
@@ -367,6 +564,7 @@ public class HidpiProfilesSettingsPanel {
             uiFontFamily.setSelectedItem(selected.uiFontFamily);
             uiFontSize.setValue(selected.uiFontSize);
             presentationModeFontSize.setValue(selected.presentationModeFontSize);
+            setUiFontFieldState(selected.accessibilityOverrideUiFont);
         } finally {
             syncingProfileFields = false;
         }
@@ -381,6 +579,24 @@ public class HidpiProfilesSettingsPanel {
             return;
         }
 
+        selected.name = profileName.getText().trim();
+        selected.isDefault = profileDefault.isSelected();
+        selected.requiresRestart = profileRequiresRestart.isSelected();
+        selected.accessibilityOverrideUiFont = accessibilityOverrideUiFont.isSelected();
+        selected.supportScreenReaders = supportScreenReaders.isSelected();
+        if (ruleEnabled.isSelected()) {
+            if (selected.autoSwitchRule == null) {
+                selected.autoSwitchRule = new DisplayRule();
+            }
+            selected.autoSwitchRule.enabled = true;
+            selected.autoSwitchRule.graphicsDeviceId = ruleGraphicsDeviceId.getText().trim();
+            selected.autoSwitchRule.bounds = ruleBounds.getText().trim();
+            selected.autoSwitchRule.scale = ((Number) ruleScale.getValue()).doubleValue();
+        } else {
+            selected.autoSwitchRule = null;
+        }
+        setRuleFieldState(ruleEnabled.isSelected());
+        setUiFontFieldState(selected.accessibilityOverrideUiFont);
         selected.editor.family = comboValue(editorFontFamily);
         selected.editor.size = ((Number) editorFontSize.getValue()).intValue();
         selected.editor.lineSpacing = ((Number) editorLineSpacing.getValue()).floatValue();
@@ -399,19 +615,34 @@ public class HidpiProfilesSettingsPanel {
         }
     }
 
+    private void setRuleFieldState(boolean enabled) {
+        ruleGraphicsDeviceId.setEnabled(enabled);
+        ruleBounds.setEnabled(enabled);
+        ruleScale.setEnabled(enabled);
+    }
+
+    private void setUiFontFieldState(boolean enabled) {
+        uiFontFamily.setEnabled(enabled);
+        uiFontSize.setEnabled(enabled);
+    }
+
     private String comboValue(JComboBox<String> comboBox) {
         Object item = comboBox.getEditor().getItem();
         return item == null ? "" : item.toString().trim();
     }
 
-    private void selectProfile(String profileId) {
+    private boolean selectProfile(String profileId) {
+        if (profileId == null || profileId.isBlank()) {
+            return false;
+        }
         for (int row = 0; row < tableModel.getRowCount(); row++) {
             HidpiProfile profile = tableModel.getAt(row);
             if (profile != null && Objects.equals(profile.id, profileId)) {
                 table.setRowSelectionInterval(row, row);
-                return;
+                return true;
             }
         }
+        return false;
     }
 
     private boolean sameProfiles(List<HidpiProfile> left, List<HidpiProfile> right) {
@@ -439,6 +670,8 @@ public class HidpiProfilesSettingsPanel {
                 && Objects.equals(left.name, right.name)
                 && left.isDefault == right.isDefault
                 && left.requiresRestart == right.requiresRestart
+                && left.accessibilityOverrideUiFont == right.accessibilityOverrideUiFont
+                && left.supportScreenReaders == right.supportScreenReaders
                 && sameFontSetting(left.editor, right.editor)
                 && sameFontSetting(left.console, right.console)
                 && Objects.equals(left.uiFontFamily, right.uiFontFamily)
@@ -483,5 +716,121 @@ public class HidpiProfilesSettingsPanel {
         withBlank[0] = "";
         System.arraycopy(names, 0, withBlank, 1, names.length);
         return withBlank;
+    }
+
+    private void filterFontChoices(JComboBox<String> comboBox, JTextField textField) {
+        if (syncingProfileFields) {
+            return;
+        }
+
+        String typed = textField.getText();
+        String filter = typed == null ? "" : typed.trim().toLowerCase();
+        List<String> matches = new ArrayList<>();
+        for (String family : fontFamilies) {
+            if (filter.isEmpty() || family.toLowerCase().contains(filter)) {
+                matches.add(family);
+            }
+        }
+
+        syncingProfileFields = true;
+        try {
+            comboBox.setModel(new DefaultComboBoxModel<>(matches.toArray(String[]::new)));
+            comboBox.getEditor().setItem(typed);
+            if (!matches.isEmpty() && textField.isFocusOwner()) {
+                comboBox.setPopupVisible(true);
+            } else {
+                comboBox.setPopupVisible(false);
+            }
+        } finally {
+            syncingProfileFields = false;
+        }
+
+        SwingUtilities.invokeLater(() -> {
+            textField.setText(typed);
+            textField.setCaretPosition(typed.length());
+        });
+    }
+
+    private final class ProfileTableCellRenderer extends JPanel implements javax.swing.table.TableCellRenderer {
+        private final JLabel title = new JLabel();
+        private final JLabel subtitle = new JLabel();
+
+        private ProfileTableCellRenderer() {
+            super(new BorderLayout(0, JBUI.scale(3)));
+            title.setFont(JBFont.label().asBold());
+            subtitle.setFont(JBFont.small());
+            subtitle.setForeground(JBColor.GRAY);
+            subtitle.setVerticalAlignment(SwingConstants.TOP);
+            setBorder(new EmptyBorder(JBUI.insets(8, 10)));
+            add(title, BorderLayout.NORTH);
+            add(subtitle, BorderLayout.CENTER);
+            setOpaque(true);
+        }
+
+        @Override
+        public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+            HidpiProfile profile = tableModel.getAt(row);
+            if (profile == null) {
+                title.setText("");
+                subtitle.setText("");
+                return this;
+            }
+
+            switch (column) {
+                case 0 -> {
+                    title.setText(profile.name);
+                    subtitle.setText(compactProfileFlags(profile));
+                }
+                case 1 -> {
+                    title.setText(profile.editor.family + " " + profile.editor.size + " / " + profile.console.family + " " + profile.console.size);
+                    subtitle.setText("UI " + uiFontSummary(profile) + "  |  Presentation " + numericOrDefault(profile.presentationModeFontSize));
+                }
+                case 2 -> {
+                    title.setText(profile.accessibilityOverrideUiFont ? "Accessibility UI font enabled" : "Accessibility UI font disabled");
+                    subtitle.setText(profile.supportScreenReaders ? "Screen readers on" : "Screen readers off");
+                }
+                case 3 -> {
+                    title.setText(profile.autoSwitchRule == null ? "No display rule" : "Auto-switch rule active");
+                    subtitle.setText(profile.autoSwitchRule == null
+                            ? "Use Detect Current Display to bind a monitor"
+                            : profile.autoSwitchRule.bounds + "  |  scale " + String.format("%.2f", profile.autoSwitchRule.scale));
+                }
+                default -> {
+                    title.setText(Objects.toString(value, ""));
+                    subtitle.setText("");
+                }
+            }
+
+            JBColor background = isSelected ? new JBColor(0xDCEBFF, 0x2F4154) : new JBColor(0xF7F9FC, 0x31343B);
+            java.awt.Color foreground = isSelected ? new JBColor(0x1E2A36, 0xE6EEF8) : JBColor.foreground();
+            java.awt.Color secondary = isSelected ? new JBColor(0x496074, 0xB8C7D9) : JBColor.GRAY;
+            setBackground(background);
+            title.setForeground(foreground);
+            subtitle.setForeground(secondary);
+            return this;
+        }
+
+        private String compactProfileFlags(HidpiProfile profile) {
+            List<String> flags = new ArrayList<>();
+            if (profile.isDefault) {
+                flags.add("Default");
+            }
+            if (profile.requiresRestart) {
+                flags.add("Restart required");
+            }
+            if (!profile.isDefault && !profile.requiresRestart) {
+                flags.add("Standard profile");
+            }
+            return String.join("  |  ", flags);
+        }
+
+        private String uiFontSummary(HidpiProfile profile) {
+            String family = profile.uiFontFamily == null || profile.uiFontFamily.isBlank() ? "system" : profile.uiFontFamily;
+            return family + " " + numericOrDefault(profile.uiFontSize);
+        }
+
+        private String numericOrDefault(int value) {
+            return value > 0 ? Integer.toString(value) : "default";
+        }
     }
 }

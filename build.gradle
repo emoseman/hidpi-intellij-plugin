@@ -3,6 +3,33 @@ plugins {
     id 'org.jetbrains.intellij.platform' version '2.2.1'
 }
 
+def ideProductDirectoryName = { String platformType ->
+    switch (platformType) {
+        case 'IC':
+            return 'IdeaIC'
+        case 'IU':
+            return 'IntelliJIdea'
+        case 'PY':
+            return 'PyCharm'
+        default:
+            return platformType
+    }
+}
+
+def defaultLocalIdePluginsDir = {
+    def home = System.getProperty('user.home')
+    def productDir = "${ideProductDirectoryName(providers.gradleProperty('platformType').get())}${providers.gradleProperty('platformVersion').get()}"
+    def osName = System.getProperty('os.name').toLowerCase()
+
+    if (osName.contains('mac')) {
+        return "${home}/Library/Application Support/JetBrains/${productDir}/plugins"
+    }
+    if (osName.contains('win')) {
+        return "${System.getenv('APPDATA')}\\JetBrains\\${productDir}\\plugins"
+    }
+    return "${home}/.local/share/JetBrains/${productDir}/plugins"
+}
+
 group = providers.gradleProperty('group').get()
 version = providers.gradleProperty('version').get()
 
@@ -71,4 +98,37 @@ tasks.named('patchPluginXml') {
 
 tasks.named('test') {
     useJUnit()
+}
+
+def deployPluginsDirProvider = providers.gradleProperty('localIdePluginsDir')
+        .orElse(providers.environmentVariable('LOCAL_IDE_PLUGINS_DIR'))
+        .orElse(defaultLocalIdePluginsDir())
+
+tasks.register('deployLocalIde', Sync) {
+    group = 'distribution'
+    description = 'Builds the plugin ZIP and installs it into a local IntelliJ plugins directory.'
+    dependsOn tasks.named('buildPlugin')
+
+    def archiveFileProvider = layout.buildDirectory.file("distributions/${rootProject.name}-${project.version}.zip")
+    def targetPluginsDir = deployPluginsDirProvider.map { new File(it) }
+    def targetPluginDir = targetPluginsDir.map { new File(it, rootProject.name) }
+
+    from {
+        zipTree(archiveFileProvider.get().asFile)
+    }
+    into targetPluginsDir
+
+    doFirst {
+        def pluginsDir = targetPluginsDir.get()
+        if (!pluginsDir.exists() && !pluginsDir.mkdirs()) {
+            throw new GradleException("Could not create IntelliJ plugins directory: ${pluginsDir}")
+        }
+
+        def pluginDir = targetPluginDir.get()
+        if (pluginDir.exists()) {
+            pluginDir.deleteDir()
+        }
+
+        logger.lifecycle("Deploying plugin to ${pluginsDir}")
+    }
 }

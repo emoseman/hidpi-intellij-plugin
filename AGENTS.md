@@ -134,3 +134,11 @@ When changing display matching, persistence, or profile lifecycle logic, extend 
 - Prefer routing profile application through `ProfileApplicationService` rather than calling the accessor directly from new UI or action code.
 - Be careful not to break staged-edit behavior in the settings configurable by writing directly to persisted state from UI listeners.
 - If adding new persisted fields, update copy logic and consider state loading defaults.
+
+
+## Git Management
+- Each tested, completed feature or bugfix gets committed to the git repository with meaningful summarizing git commit message
+
+## Version Management
+- Each tested, completed feature will increase the minor version number
+- Each tested, completed bugfix will increase the patch version number

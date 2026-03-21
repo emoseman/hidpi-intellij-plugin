@@ -28,6 +28,12 @@ public class HidpiProfile {
     @Attribute("uiFontFamily")
     public String uiFontFamily = "";
 
+    @Attribute("accessibilityOverrideUiFont")
+    public boolean accessibilityOverrideUiFont;
+
+    @Attribute("supportScreenReaders")
+    public boolean supportScreenReaders;
+
     @Attribute("uiFontSize")
     public int uiFontSize = -1;
 
@@ -46,6 +52,8 @@ public class HidpiProfile {
         copy.editor = editor.copy();
         copy.console = console.copy();
         copy.uiFontFamily = uiFontFamily;
+        copy.accessibilityOverrideUiFont = accessibilityOverrideUiFont;
+        copy.supportScreenReaders = supportScreenReaders;
         copy.uiFontSize = uiFontSize;
         copy.presentationModeFontSize = presentationModeFontSize;
         copy.autoSwitchRule = autoSwitchRule == null ? null : autoSwitchRule.copy();
@@ -54,9 +62,10 @@ public class HidpiProfile {
 
     public String summary() {
         return String.format(
-                "UI: %s %s | Editor: %s %d | Console: %s %d",
+                "UI: %s %s%s | Editor: %s %d | Console: %s %d",
                 uiFontFamily.isBlank() ? "system" : uiFontFamily,
                 uiFontSize <= 0 ? "default" : Integer.toString(uiFontSize),
+                accessibilityOverrideUiFont ? " accessibility" : "",
                 editor.family,
                 editor.size,
                 console.family,

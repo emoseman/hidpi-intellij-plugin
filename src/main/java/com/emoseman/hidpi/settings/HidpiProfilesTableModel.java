@@ -8,7 +8,7 @@ import java.util.List;
 
 public class HidpiProfilesTableModel extends AbstractTableModel {
     private final List<HidpiProfile> profiles = new ArrayList<>();
-    private static final String[] COLUMNS = {"Name", "Summary", "Default", "Auto Rule"};
+    private static final String[] COLUMNS = {"Profile", "Fonts", "Behavior", "Display"};
 
     public void setProfiles(List<HidpiProfile> values) {
         profiles.clear();
