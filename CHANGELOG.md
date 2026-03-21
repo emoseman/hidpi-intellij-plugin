@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.4
+
+- Marked local IDE helper tasks as not compatible with Gradle configuration cache so stop/start commands run correctly
+
+## 1.1.3
+
+- Fixed `redeployLocalIde` helper tasks to execute local IDE stop/start commands through the Gradle project API
+
 ## 1.1.2
 
 - Stabilized font-family filtering in the settings UI so typing and selecting a font works reliably

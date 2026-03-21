@@ -1,6 +1,16 @@
+import org.gradle.api.DefaultTask
+import org.gradle.process.ExecOperations
+
+import javax.inject.Inject
+
 plugins {
     id 'java'
     id 'org.jetbrains.intellij.platform' version '2.2.1'
+}
+
+abstract class LocalIdeTask extends DefaultTask {
+    @Inject
+    abstract ExecOperations getExecOperations()
 }
 
 def ideProductDirectoryName = { String platformType ->
@@ -72,9 +82,9 @@ intellijPlatform {
         '''.stripIndent().trim()
 
         changeNotes = '''
-            <h3>1.1.2</h3>
+            <h3>1.1.4</h3>
             <ul>
-              <li>Stabilized font-family filtering so typing and selecting fonts works reliably in the settings UI.</li>
+              <li>Marked local IDE redeploy helper tasks as incompatible with Gradle configuration cache so they can execute local process commands safely.</li>
             </ul>
         '''.stripIndent().trim()
 
@@ -150,9 +160,10 @@ tasks.register('deployLocalIde', Sync) {
     }
 }
 
-tasks.register('stopLocalIde') {
+tasks.register('stopLocalIde', LocalIdeTask) {
     group = 'distribution'
     description = 'Stops a running local IntelliJ instance before plugin deployment.'
+    notCompatibleWithConfigurationCache('Executes local process management commands for the user IDE.')
 
     doLast {
         def processMatch = localIdeProcessMatchProvider.orNull
@@ -164,12 +175,12 @@ tasks.register('stopLocalIde') {
         logger.lifecycle("Stopping local IDE processes matching '${processMatch}'")
 
         if (isWindows) {
-            exec {
+            execOperations.exec {
                 commandLine 'cmd', '/c', 'taskkill', '/F', '/IM', processMatch
                 ignoreExitValue = true
             }
         } else {
-            exec {
+            execOperations.exec {
                 commandLine 'pkill', '-f', processMatch
                 ignoreExitValue = true
             }
@@ -179,9 +190,10 @@ tasks.register('stopLocalIde') {
     }
 }
 
-tasks.register('startLocalIde') {
+tasks.register('startLocalIde', LocalIdeTask) {
     group = 'distribution'
     description = 'Starts a local IntelliJ instance from a configured executable path.'
+    notCompatibleWithConfigurationCache('Executes the local IntelliJ launcher outside Gradle task inputs/outputs.')
 
     doLast {
         def executable = localIdeExecutableProvider.orNull
@@ -194,21 +206,21 @@ tasks.register('startLocalIde') {
         logger.lifecycle("Starting local IDE from ${executable}")
 
         if (isMac && executable.toLowerCase().endsWith('.app')) {
-            exec {
+            execOperations.exec {
                 commandLine 'open', '-na', executable
             }
             return
         }
 
         if (isWindows) {
-            exec {
+            execOperations.exec {
                 commandLine 'cmd', '/c', 'start', '""', executable
             }
             return
         }
 
         def escapedExecutable = executable.replace("'", "'\"'\"'")
-        exec {
+        execOperations.exec {
             commandLine 'sh', '-lc', "nohup '${escapedExecutable}' >/dev/null 2>&1 &"
         }
     }
@@ -225,6 +237,7 @@ tasks.named('startLocalIde') {
 tasks.register('redeployLocalIde') {
     group = 'distribution'
     description = 'Stops a local IntelliJ instance, deploys the freshly built plugin, and starts the IDE again.'
+    notCompatibleWithConfigurationCache('Composes local IDE stop/deploy/start helper tasks.')
     dependsOn tasks.named('stopLocalIde')
     dependsOn tasks.named('deployLocalIde')
     dependsOn tasks.named('startLocalIde')
