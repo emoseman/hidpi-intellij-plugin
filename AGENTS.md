@@ -141,4 +141,5 @@ When changing display matching, persistence, or profile lifecycle logic, extend 
 
 ## Version Management
 - Each tested, completed feature will increase the minor version number
+  - When a new minor version is made, the patch version resets to 0
 - Each tested, completed bugfix will increase the patch version number
