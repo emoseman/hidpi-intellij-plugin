@@ -72,9 +72,9 @@ intellijPlatform {
         '''.stripIndent().trim()
 
         changeNotes = '''
-            <h3>1.1.0</h3>
+            <h3>1.1.1</h3>
             <ul>
-              <li>Added Gradle tasks to redeploy the plugin into a local IDE install and restart the IDE for faster iteration.</li>
+              <li>Refreshed open editors after applying a profile so editor font size changes take effect immediately.</li>
             </ul>
         '''.stripIndent().trim()
 

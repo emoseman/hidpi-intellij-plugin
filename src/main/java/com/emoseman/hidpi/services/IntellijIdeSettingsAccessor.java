@@ -7,6 +7,7 @@ import com.intellij.ide.GeneralSettings;
 import com.intellij.ide.ui.UISettings;
 import com.intellij.openapi.application.ApplicationManager;
 import com.intellij.openapi.components.Service;
+import com.intellij.openapi.editor.EditorFactory;
 import com.intellij.openapi.editor.colors.EditorColorsManager;
 import com.intellij.openapi.editor.colors.EditorColorsScheme;
 import com.intellij.openapi.options.advanced.AdvancedSettings;
@@ -79,6 +80,7 @@ public final class IntellijIdeSettingsAccessor implements IdeSettingsAccessor {
                 uiSettings.fireUISettingsChanged();
             }
             GeneralSettings.getInstance().setSupportScreenReaders(profile.supportScreenReaders);
+            EditorFactory.getInstance().refreshAllEditors();
 
             boolean restartRequired = false;
             if (supportsIdeScaleSetting()) {

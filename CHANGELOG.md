@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.1
+
+- Refreshed open editors after profile apply so editor font size changes take effect immediately
+
 ## 1.1.0
 
 - Added `deployLocalIde`, `stopLocalIde`, `startLocalIde`, and `redeployLocalIde` Gradle tasks for faster local plugin iteration
