@@ -82,9 +82,9 @@ intellijPlatform {
         '''.stripIndent().trim()
 
         changeNotes = '''
-            <h3>1.1.5</h3>
+            <h3>1.1.6</h3>
             <ul>
-              <li>Removed re-entrant font family combo-box filtering that could prevent typing in editable font family fields.</li>
+              <li>Restored font family combo-box filtering using deferred model updates so typing remains responsive while the font list narrows as you type.</li>
             </ul>
         '''.stripIndent().trim()
 
