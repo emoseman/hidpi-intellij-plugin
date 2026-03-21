@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.1.2
+
+- Stabilized font-family filtering in the settings UI so typing and selecting a font works reliably
+
 ## 1.1.1
 
 - Refreshed open editors after profile apply so editor font size changes take effect immediately

@@ -7,7 +7,7 @@ Modern HiDPI Profiles restores and modernizes the classic HiDPI profile workflow
 ### Install from a plugin ZIP
 
 1. Download the plugin ZIP artifact.
-   For this project, the built artifact is typically `build/distributions/modern-hidpi-profiles-1.1.1.zip`.
+   For this project, the built artifact is typically `build/distributions/modern-hidpi-profiles-1.1.2.zip`.
 2. In IntelliJ IDEA, open **Settings / Preferences > Plugins**.
 3. Click the gear icon and choose **Install Plugin from Disk...**.
 4. Select the ZIP file and restart the IDE if prompted.

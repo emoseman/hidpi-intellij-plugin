@@ -29,6 +29,8 @@ import javax.swing.ListSelectionModel;
 import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.SpinnerNumberModel;
+import javax.swing.event.PopupMenuEvent;
+import javax.swing.event.PopupMenuListener;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.ChangeListener;
 import javax.swing.event.DocumentEvent;
@@ -78,6 +80,7 @@ public class HidpiProfilesSettingsPanel {
     private final JBLabel detailHint = new JBLabel("Select a profile to edit its font settings.");
     private static final int PROFILE_EDITOR_WIDTH = 350;
     private boolean syncingProfileFields;
+    private boolean filteringFontChoices;
 
     public HidpiProfilesSettingsPanel() {
         JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
@@ -480,23 +483,38 @@ public class HidpiProfilesSettingsPanel {
             textField.getDocument().addDocumentListener(new DocumentListener() {
                 @Override
                 public void insertUpdate(DocumentEvent event) {
-                    filterFontChoices(comboBox, textField);
+                    applyFontFilter(comboBox, textField);
                     syncCurrentEditorValues();
                 }
 
                 @Override
                 public void removeUpdate(DocumentEvent event) {
-                    filterFontChoices(comboBox, textField);
+                    applyFontFilter(comboBox, textField);
                     syncCurrentEditorValues();
                 }
 
                 @Override
                 public void changedUpdate(DocumentEvent event) {
-                    filterFontChoices(comboBox, textField);
+                    applyFontFilter(comboBox, textField);
                     syncCurrentEditorValues();
                 }
             });
         }
+        comboBox.addPopupMenuListener(new PopupMenuListener() {
+            @Override
+            public void popupMenuWillBecomeVisible(PopupMenuEvent event) {
+            }
+
+            @Override
+            public void popupMenuWillBecomeInvisible(PopupMenuEvent event) {
+                restoreAllFontChoices(comboBox);
+            }
+
+            @Override
+            public void popupMenuCanceled(PopupMenuEvent event) {
+                restoreAllFontChoices(comboBox);
+            }
+        });
     }
 
     private void loadSelectedProfileIntoEditor() {
@@ -718,8 +736,8 @@ public class HidpiProfilesSettingsPanel {
         return withBlank;
     }
 
-    private void filterFontChoices(JComboBox<String> comboBox, JTextField textField) {
-        if (syncingProfileFields) {
+    private void applyFontFilter(JComboBox<String> comboBox, JTextField textField) {
+        if (syncingProfileFields || filteringFontChoices) {
             return;
         }
 
@@ -732,9 +750,13 @@ public class HidpiProfilesSettingsPanel {
             }
         }
 
-        syncingProfileFields = true;
+        filteringFontChoices = true;
         try {
-            comboBox.setModel(new DefaultComboBoxModel<>(matches.toArray(String[]::new)));
+            DefaultComboBoxModel<String> model = comboBoxModel(comboBox);
+            model.removeAllElements();
+            for (String family : matches) {
+                model.addElement(family);
+            }
             comboBox.getEditor().setItem(typed);
             if (!matches.isEmpty() && textField.isFocusOwner()) {
                 comboBox.setPopupVisible(true);
@@ -742,13 +764,49 @@ public class HidpiProfilesSettingsPanel {
                 comboBox.setPopupVisible(false);
             }
         } finally {
-            syncingProfileFields = false;
+            filteringFontChoices = false;
         }
 
         SwingUtilities.invokeLater(() -> {
-            textField.setText(typed);
-            textField.setCaretPosition(typed.length());
+            if (!textField.isDisplayable()) {
+                return;
+            }
+            if (!Objects.equals(textField.getText(), typed)) {
+                textField.setText(typed);
+            }
+            textField.setCaretPosition(Math.min(typed.length(), textField.getText().length()));
         });
+    }
+
+    private void restoreAllFontChoices(JComboBox<String> comboBox) {
+        if (filteringFontChoices) {
+            return;
+        }
+        Object currentItem = comboBox.getEditor().getItem();
+        DefaultComboBoxModel<String> model = comboBoxModel(comboBox);
+        if (model.getSize() == fontFamilies.length) {
+            return;
+        }
+
+        filteringFontChoices = true;
+        try {
+            model.removeAllElements();
+            for (String family : fontFamilies) {
+                model.addElement(family);
+            }
+            comboBox.getEditor().setItem(currentItem);
+        } finally {
+            filteringFontChoices = false;
+        }
+    }
+
+    private DefaultComboBoxModel<String> comboBoxModel(JComboBox<String> comboBox) {
+        if (comboBox.getModel() instanceof DefaultComboBoxModel<String> model) {
+            return model;
+        }
+        DefaultComboBoxModel<String> model = new DefaultComboBoxModel<>(fontFamilies.clone());
+        comboBox.setModel(model);
+        return model;
     }
 
     private final class ProfileTableCellRenderer extends JPanel implements javax.swing.table.TableCellRenderer {

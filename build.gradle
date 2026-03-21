@@ -72,9 +72,9 @@ intellijPlatform {
         '''.stripIndent().trim()
 
         changeNotes = '''
-            <h3>1.1.1</h3>
+            <h3>1.1.2</h3>
             <ul>
-              <li>Refreshed open editors after applying a profile so editor font size changes take effect immediately.</li>
+              <li>Stabilized font-family filtering so typing and selecting fonts works reliably in the settings UI.</li>
             </ul>
         '''.stripIndent().trim()
 
